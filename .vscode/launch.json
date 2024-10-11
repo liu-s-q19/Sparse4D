@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Train Sparse4D",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/tools/train.py",
+            "console": "integratedTerminal",
+            "args": [
+                "your_config_file.py", // 替换为实际的配置文件名称
+                "--other-arg",
+                "value" // 可以添加其他需要的参数
+            ],
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "1",
+                "PYTHONPATH": "${workspaceFolder}:${env:PYTHONPATH}"
+            },
+            "justMyCode": false,
+            "pythonPath": "/home/xingyining/anaconda3/envs/sp/bin/python" // 替换为你 Python 环境的路径
+        }
+    ]
+}
