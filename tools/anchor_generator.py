@@ -2,8 +2,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 import mmcv
 import sys
-sys.path.append("../../")
-sys.path.append("/home/xingyining/liushiqi/Sparse4D-main")
+sys.path.append("/home/xingyining/liushiqi/Sparse4D")
 from projects.mmdet3d_plugin.core.box3d import *
 
 
@@ -34,13 +33,13 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="anchor kmeans")
-    parser.add_argument("--ann_file", type=str, required=True)
+    parser.add_argument("--ann_file", type=str, default="data/nuscenes_anno_pkls/nuscenes-mini_infos_train.pkl")
     parser.add_argument("--num_anchor", type=int, default=900)
     parser.add_argument("--detection_range", type=float, default=55)
     parser.add_argument(
-        "--output_file_name", type=str, default="_nuscenes_kmeans900.npy"
+        "--output_file_name", type=str, default="nuscenes_kmeans900.npy"
     )
-    parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--verbose", default=True, action="store_true")
     args = parser.parse_args()
     get_kmeans_anchor(
         args.ann_file,

@@ -2,3 +2,4 @@
 *.npy
 *.pth
 data/
+work_dirs/
