@@ -1,8 +1,6 @@
 import numpy as np
 from sklearn.cluster import KMeans
 import mmcv
-import sys
-sys.path.append("/home/xingyining/liushiqi/Sparse4D")
 from projects.mmdet3d_plugin.core.box3d import *
 
 

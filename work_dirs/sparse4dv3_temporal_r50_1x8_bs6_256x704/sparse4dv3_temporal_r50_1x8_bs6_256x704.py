@@ -269,7 +269,7 @@ data = dict(
             use_map=False,
             use_external=False),
         version='v1.0-trainval',
-        ann_file='data/nuscenes_anno_pkls/nuscenes-mini_infos_train.pkl',
+        ann_file='data/nuscenes_anno_pkls/nuscenes_infos_train.pkl',
         pipeline=[
             dict(type='LoadMultiViewImageFromFiles', to_float32=True),
             dict(
@@ -335,7 +335,7 @@ data = dict(
             use_map=False,
             use_external=False),
         version='v1.0-trainval',
-        ann_file='data/nuscenes_anno_pkls/nuscenes-mini_infos_val.pkl',
+        ann_file='data/nuscenes_anno_pkls/nuscenes_infos_val.pkl',
         pipeline=[
             dict(type='LoadMultiViewImageFromFiles', to_float32=True),
             dict(type='ResizeCropFlipImage'),
@@ -376,7 +376,7 @@ data = dict(
             use_map=False,
             use_external=False),
         version='v1.0-trainval',
-        ann_file='data/nuscenes_anno_pkls/nuscenes-mini_infos_val.pkl',
+        ann_file='data/nuscenes_anno_pkls/nuscenes_infos_val.pkl',
         pipeline=[
             dict(type='LoadMultiViewImageFromFiles', to_float32=True),
             dict(type='ResizeCropFlipImage'),

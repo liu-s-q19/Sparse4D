@@ -39,6 +39,7 @@ def parse_args():
     )
     parser.add_argument(
         "--no-validate",
+        default=True,
         action="store_true",
         help="whether not to evaluate the checkpoint during training",
     )
