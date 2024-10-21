@@ -243,9 +243,141 @@ class InstanceBank(nn.Module):
                 temp_conf = confidence
         else:
             temp_conf = self.temp_confidence
-        instance_id = topk(temp_conf, self.num_temp_instances, instance_id)[1][
-            0
-        ]
+        instance_id = topk(temp_conf, self.num_temp_instances, instance_id)[1][0]
+        instance_id = instance_id.squeeze(dim=-1)
+        self.instance_id = F.pad(
+            instance_id,
+            (0, self.num_anchor - self.num_temp_instances),
+            value=-1,
+        )
+        
+@PLUGIN_LAYERS.register_module()        
+class SCInstanceBank(InstanceBank):
+    def __init__(self, *args, **kwargs):
+
+        # self.new_param = new_param
+
+        super(SCInstanceBank, self).__init__(*args, **kwargs)
+
+    def reset(self):
+        self.cached_feature = None
+        self.cached_anchor = None
+        self.metas = None
+        self.mask = None
+        self.confidence = None
+        self.temp_confidence = None
+        self.score = None
+        self.temp_score = None
+        self.instance_id = None
+        self.prev_id = 0
+        
+    def update(self, instance_feature, anchor, confidence, score):
+
+        if self.cached_feature is None:
+            return instance_feature, anchor
+
+        num_dn = 0
+        if instance_feature.shape[1] > self.num_anchor:
+            num_dn = instance_feature.shape[1] - self.num_anchor
+            dn_instance_feature = instance_feature[:, -num_dn:]
+            dn_anchor = anchor[:, -num_dn:]
+            instance_feature = instance_feature[:, : self.num_anchor]
+            anchor = anchor[:, : self.num_anchor]
+            confidence = confidence[:, : self.num_anchor]
+            score = score[:, : self.num_anchor]
+
+        N = self.num_anchor - self.num_temp_instances
+        confidence = confidence.max(dim=-1).values
+        score = score.squeeze(-1)
+        _, (selected_feature, selected_anchor) = topk(
+            score, N, instance_feature, anchor
+        )
+        selected_feature = torch.cat(
+            [self.cached_feature, selected_feature], dim=1
+        )
+        selected_anchor = torch.cat(
+            [self.cached_anchor, selected_anchor], dim=1
+        )
+        instance_feature = torch.where(
+            self.mask[:, None, None], selected_feature, instance_feature
+        )
+        anchor = torch.where(self.mask[:, None, None], selected_anchor, anchor)
+        if self.instance_id is not None:
+            self.instance_id = torch.where(
+                self.mask[:, None],
+                self.instance_id,
+                self.instance_id.new_tensor(-1),
+            )
+
+        if num_dn > 0:
+            instance_feature = torch.cat(
+                [instance_feature, dn_instance_feature], dim=1
+            )
+            anchor = torch.cat([anchor, dn_anchor], dim=1)
+        return instance_feature, anchor
+    
+    def cache(
+        self,
+        instance_feature,
+        anchor,
+        confidence,
+        score,
+        metas=None,
+        feature_maps=None,
+    ):
+        if self.num_temp_instances <= 0:
+            return
+        instance_feature = instance_feature.detach()
+        anchor = anchor.detach()
+        confidence = confidence.detach()
+        score = score.detach()
+
+        self.metas = metas
+        confidence = confidence.max(dim=-1).values.sigmoid()
+        score = score.squeeze(-1)
+        if self.score is not None:
+            score[:, : self.num_temp_instances] = torch.maximum(
+                self.score * self.confidence_decay,
+                score[:, : self.num_temp_instances],
+            )
+        self.temp_score = score
+
+        (
+            self.score,
+            (self.cached_feature, self.cached_anchor),
+        ) = topk(score, self.num_temp_instances, instance_feature, anchor)
+        
+    def get_instance_id(self, confidence, score, anchor=None, threshold=None):
+        confidence = confidence.max(dim=-1).values.sigmoid()
+        score = score.squeeze(-1)
+        instance_id = score.new_full(score.shape, -1).long()
+
+        if (
+            self.instance_id is not None
+            and self.instance_id.shape[0] == instance_id.shape[0]
+        ):
+            instance_id[:, : self.instance_id.shape[1]] = self.instance_id
+
+        mask = instance_id < 0
+        if threshold is not None:
+            mask = mask & (score >= threshold)
+        num_new_instance = mask.sum()
+        new_ids = torch.arange(num_new_instance).to(instance_id) + self.prev_id
+        instance_id[torch.where(mask)] = new_ids
+        self.prev_id += num_new_instance
+        if self.num_temp_instances > 0:
+            self.update_instance_id(instance_id, score)
+        return instance_id
+
+    def update_instance_id(self, instance_id=None, score=None):
+        if self.temp_score is None:
+            if score.dim() == 3:  # bs, num_anchor, num_cls
+                temp_conf = score.max(dim=-1).values
+            else:  # bs, num_anchor
+                temp_conf = score
+        else:
+            temp_conf = self.temp_score
+        instance_id = topk(temp_conf, self.num_temp_instances, instance_id)[1][0]
         instance_id = instance_id.squeeze(dim=-1)
         self.instance_id = F.pad(
             instance_id,

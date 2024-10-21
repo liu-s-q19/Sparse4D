@@ -288,7 +288,7 @@ class Sparse4DHead(BaseModule):
                     metas,
                 )
             elif op == "refine":
-                anchor, cls, qt = self.layers[i](
+                anchor, cls, qt, sc = self.layers[i](
                     instance_feature,
                     anchor,
                     anchor_embed,
@@ -304,7 +304,7 @@ class Sparse4DHead(BaseModule):
                 quality.append(qt)
                 if len(prediction) == self.num_single_frame_decoder:
                     instance_feature, anchor = self.instance_bank.update(
-                        instance_feature, anchor, cls
+                        instance_feature, anchor, cls, sc
                     )
                     if (
                         dn_metas is not None
@@ -379,6 +379,7 @@ class Sparse4DHead(BaseModule):
             instance_feature = instance_feature[:, :num_free_instance]
             anchor = anchor[:, :num_free_instance]
             cls = cls[:, :num_free_instance]
+            sc = sc[:, :num_free_instance]
 
             # cache dn_metas for temporal denoising
             self.sampler.cache_dn(
@@ -398,11 +399,11 @@ class Sparse4DHead(BaseModule):
 
         # cache current instances for temporal modeling
         self.instance_bank.cache(
-            instance_feature, anchor, cls, metas, feature_maps
+            instance_feature, anchor, cls, sc, metas, feature_maps
         )
         if not self.training:
             instance_id = self.instance_bank.get_instance_id(
-                cls, anchor, self.decoder.score_threshold
+                cls, sc, anchor, self.decoder.score_threshold
             )
             output["instance_id"] = instance_id
         return output
@@ -462,7 +463,7 @@ class Sparse4DHead(BaseModule):
                 quality=qt,
                 cls_target=cls_target,
             )
-
+  
             output[f"loss_cls_{decoder_idx}"] = cls_loss
             output.update(reg_loss)
 

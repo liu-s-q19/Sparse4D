@@ -19,6 +19,9 @@ from mmdet.datasets import replace_ImageToTensor, build_dataset
 from mmdet.datasets import build_dataloader as build_dataloader_origin
 from mmdet.models import build_detector
 
+import sys
+sys.path.append("../../")
+sys.path.append("/home/xingyining/liushiqi/Sparse4D")
 from projects.mmdet3d_plugin.datasets.builder import build_dataloader
 from projects.mmdet3d_plugin.apis.test import custom_multi_gpu_test
 
@@ -27,8 +30,8 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="MMDet test (and eval) a model"
     )
-    parser.add_argument("config", help="test config file path")
-    parser.add_argument("checkpoint", help="checkpoint file")
+    parser.add_argument("--config", default='projects/configs/sparse4dv3_temporal_r50_1x8_bs6_256x704.py', help="test config file path")
+    parser.add_argument("--checkpoint", default="work_dirs/sparse4dv3_temporal_r50_1x8_bs6_256x704/ckpts/sparse4dv3_r50.pth")
     parser.add_argument("--out", help="output result file in pickle format")
     parser.add_argument(
         "--fuse-conv-bn",
@@ -46,6 +49,7 @@ def parse_args():
     parser.add_argument(
         "--eval",
         type=str,
+        default=True,
         nargs="+",
         help='evaluation metrics, which depends on the dataset, e.g., "bbox",'
         ' "segm", "proposal" for COCO, and "mAP", "recall" for PASCAL VOC',

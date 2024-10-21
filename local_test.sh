@@ -15,14 +15,14 @@ echo "checkpoint: "${checkpoint}
 if [ ${gpu_num} -gt 1 ]
 then
     bash ./tools/dist_test.sh \
-        ${config} \
+        --config=$config \
         ${checkpoint} \
         ${gpu_num} \
         --eval bbox \
         $@
 else
     python ./tools/test.py \
-        ${config} \
+        --config=$config \
         ${checkpoint} \
         --eval bbox \
         $@

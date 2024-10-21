@@ -60,13 +60,16 @@ dist_params = dict(backend="nccl")
 log_level = "INFO"
 work_dir = None
 
-total_batch_size = 48
-num_gpus = 8
+version = 'mini'
+length = {'trainval': 28130, 'mini': 323}
+
+num_gpus = 1
+total_batch_size = int(64 * num_gpus / 8)
 batch_size = total_batch_size // num_gpus
-num_iters_per_epoch = int(28130 // (num_gpus * batch_size))
-# num_iters_per_epoch = int(96 // (num_gpus * batch_size))
+num_iters_per_epoch = int(length[version] // (num_gpus * batch_size))
 num_epochs = 100
 checkpoint_epoch_interval = 20
+lr = 6e-4 * num_gpus / 8
 
 checkpoint_config = dict(
     interval=num_iters_per_epoch * checkpoint_epoch_interval
@@ -151,7 +154,7 @@ model = dict(
         cls_threshold_to_reg=0.05,
         decouple_attn=decouple_attn,
         instance_bank=dict(
-            type="InstanceBank",
+            type="SCInstanceBank",
             num_anchor=900,
             embed_dims=embed_dims,
             anchor="nuscenes_kmeans900.npy",
@@ -167,7 +170,9 @@ model = dict(
             mode="cat" if decouple_attn else "add",
             output_fc=not decouple_attn,
             in_loops=1,
-            out_loops=4 if decouple_attn else 2,
+            out_loops=2 if decouple_attn else 2,
+            hid_dim=64, 
+            gru_num=3,
         ),
         num_single_frame_decoder=num_single_frame_decoder,
         operation_order=(
@@ -297,7 +302,7 @@ model = dict(
 dataset_type = "NuScenes3DDetTrackDataset"
 data_root = "data/nuscenes/"
 anno_root = "data/nuscenes_cam/"
-anno_root = "data/nuscenes_anno_pkls/"
+anno_root = "data/nuscenes_self_anno_pkls/"
 file_client_args = dict(backend="disk")
 
 img_norm_cfg = dict(
@@ -421,7 +426,7 @@ data = dict(
 # ================== training ========================
 optimizer = dict(
     type="AdamW",
-    lr=6e-4,
+    lr=lr,
     weight_decay=0.001,
     paramwise_cfg=dict(
         custom_keys={

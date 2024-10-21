@@ -3,13 +3,16 @@ plugin_dir = 'projects/mmdet3d_plugin/'
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
 work_dir = 'work_dirs/sparse4dv3_temporal_r50_1x8_bs6_256x704'
-total_batch_size = 48
-num_gpus = 8
-batch_size = 6
-num_iters_per_epoch = 586
+version = 'mini'
+length = dict(trainval=28130, mini=323)
+num_gpus = 1
+total_batch_size = 8
+batch_size = 8
+num_iters_per_epoch = 40
 num_epochs = 100
 checkpoint_epoch_interval = 20
-checkpoint_config = dict(interval=11720)
+lr = 7.5e-05
+checkpoint_config = dict(interval=800)
 log_config = dict(
     interval=51,
     hooks=[
@@ -73,7 +76,7 @@ model = dict(
         cls_threshold_to_reg=0.05,
         decouple_attn=True,
         instance_bank=dict(
-            type='InstanceBank',
+            type='SCInstanceBank',
             num_anchor=900,
             embed_dims=256,
             anchor='nuscenes_kmeans900.npy',
@@ -88,7 +91,9 @@ model = dict(
             mode='cat',
             output_fc=False,
             in_loops=1,
-            out_loops=4),
+            out_loops=2,
+            hid_dim=64,
+            gru_num=3),
         num_single_frame_decoder=1,
         operation_order=[
             'deformable', 'ffn', 'norm', 'refine', 'temp_gnn', 'gnn', 'norm',
@@ -170,7 +175,7 @@ model = dict(
         reg_weights=[2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]))
 dataset_type = 'NuScenes3DDetTrackDataset'
 data_root = 'data/nuscenes/'
-anno_root = 'data/nuscenes_anno_pkls/'
+anno_root = 'data/nuscenes_self_anno_pkls/'
 file_client_args = dict(backend='disk')
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
@@ -253,8 +258,8 @@ data_aug_conf = dict(
     rand_flip=True,
     rot3d_range=[-0.3925, 0.3925])
 data = dict(
-    samples_per_gpu=6,
-    workers_per_gpu=6,
+    samples_per_gpu=8,
+    workers_per_gpu=8,
     train=dict(
         type='NuScenes3DDetTrackDataset',
         data_root='data/nuscenes/',
@@ -269,7 +274,7 @@ data = dict(
             use_map=False,
             use_external=False),
         version='v1.0-trainval',
-        ann_file='data/nuscenes_anno_pkls/nuscenes-mini_infos_train.pkl',
+        ann_file='data/nuscenes_self_anno_pkls/nuscenes-mini_infos_train.pkl',
         pipeline=[
             dict(type='LoadMultiViewImageFromFiles', to_float32=True),
             dict(
@@ -335,7 +340,7 @@ data = dict(
             use_map=False,
             use_external=False),
         version='v1.0-trainval',
-        ann_file='data/nuscenes_anno_pkls/nuscenes-mini_infos_val.pkl',
+        ann_file='data/nuscenes_self_anno_pkls/nuscenes-mini_infos_val.pkl',
         pipeline=[
             dict(type='LoadMultiViewImageFromFiles', to_float32=True),
             dict(type='ResizeCropFlipImage'),
@@ -376,7 +381,7 @@ data = dict(
             use_map=False,
             use_external=False),
         version='v1.0-trainval',
-        ann_file='data/nuscenes_anno_pkls/nuscenes-mini_infos_val.pkl',
+        ann_file='data/nuscenes_self_anno_pkls/nuscenes-mini_infos_val.pkl',
         pipeline=[
             dict(type='LoadMultiViewImageFromFiles', to_float32=True),
             dict(type='ResizeCropFlipImage'),
@@ -405,7 +410,7 @@ data = dict(
         tracking_threshold=0.2))
 optimizer = dict(
     type='AdamW',
-    lr=0.0006,
+    lr=7.5e-05,
     weight_decay=0.001,
     paramwise_cfg=dict(custom_keys=dict(img_backbone=dict(lr_mult=0.5))))
 optimizer_config = dict(grad_clip=dict(max_norm=25, norm_type=2))
@@ -415,13 +420,13 @@ lr_config = dict(
     warmup_iters=500,
     warmup_ratio=0.3333333333333333,
     min_lr_ratio=0.001)
-runner = dict(type='IterBasedRunner', max_iters=58600)
+runner = dict(type='IterBasedRunner', max_iters=4000)
 vis_pipeline = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True),
     dict(type='Collect', keys=['img'], meta_keys=['timestamp', 'lidar2img'])
 ]
 evaluation = dict(
-    interval=11720,
+    interval=800,
     pipeline=[
         dict(type='LoadMultiViewImageFromFiles', to_float32=True),
         dict(

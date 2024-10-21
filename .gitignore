@@ -3,3 +3,4 @@
 *.pth
 data/
 work_dirs/
+work_dirs/sparse4dv3_temporal_r50_1x8_bs6_256x704/

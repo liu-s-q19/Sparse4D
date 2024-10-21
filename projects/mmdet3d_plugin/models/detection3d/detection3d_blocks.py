@@ -17,6 +17,7 @@ __all__ = [
     "SparseBox3DRefinementModule",
     "SparseBox3DKeyPointsGenerator",
     "SparseBox3DEncoder",
+    "LatentPredict",
 ]
 
 
@@ -30,6 +31,8 @@ class SparseBox3DEncoder(BaseModule):
         output_fc=True,
         in_loops=1,
         out_loops=2,
+        hid_dim=64, 
+        gru_num=3,
     ):
         super().__init__()
         assert mode in ["add", "cat"]
@@ -53,7 +56,14 @@ class SparseBox3DEncoder(BaseModule):
             self.output_fc = embedding_layer(embed_dims[-1], embed_dims[-1])
         else:
             self.output_fc = None
-
+            
+        # RNN
+        self.gru = nn.GRU(input_size=256, hidden_size=hid_dim, num_layers=gru_num)
+        self.linear1 = nn.Linear(hid_dim, hid_dim*2)
+        self.linear2 = nn.Linear(hid_dim*2, hid_dim*2)
+        self.linear3 = nn.Linear(hid_dim*2, 256)
+        self.relu = nn.ReLU(inplace=True)
+        
     def forward(self, box_3d: torch.Tensor):
         pos_feat = self.pos_fc(box_3d[..., [X, Y, Z]])
         size_feat = self.size_fc(box_3d[..., [W, L, H]])
@@ -71,8 +81,151 @@ class SparseBox3DEncoder(BaseModule):
                 output = torch.cat([output, vel_feat], dim=-1)
         if self.output_fc is not None:
             output = self.output_fc(output)
-        return output
+        # result = output
+        lat_feat, _ = self.gru(output)
+        lat_feat = self.relu(self.linear1(lat_feat))
+        lat_feat = self.relu(self.linear2(lat_feat))
+        result = self.linear3(lat_feat)
+        return result
 
+    # def forward(self, box_3d: torch.Tensor):
+    #     pos_feat = self.pos_fc(box_3d[..., [X, Y, Z]])
+    #     size_feat = self.size_fc(box_3d[..., [W, L, H]])
+    #     yaw_feat = self.yaw_fc(box_3d[..., [SIN_YAW, COS_YAW]])
+    #     if self.mode == "add":
+    #         output = pos_feat + size_feat + yaw_feat
+    #     elif self.mode == "cat":
+    #         output = torch.cat([pos_feat, size_feat, yaw_feat], dim=-1)
+
+    #     if self.vel_dims > 0:
+    #         vel_feat = self.vel_fc(box_3d[..., VX : VX + self.vel_dims])
+    #         if self.mode == "add":
+    #             output = output + vel_feat
+    #         elif self.mode == "cat":
+    #             output = torch.cat([output, vel_feat], dim=-1)
+    #     if self.output_fc is not None:
+    #         output = self.output_fc(output)
+    #     return output
+
+@POSITIONAL_ENCODING.register_module()       
+class LatentPredict(BaseModule):
+    def __init__(self, 
+                    embed_dims,
+                    vel_dims=3,
+                    mode="add",
+                    output_fc=True,
+                    in_loops=1,
+                    out_loops=2,
+                    hid_dim=64, 
+                    gru_num=3,):
+        super().__init__()
+        assert mode in ["add", "cat"]
+        self.embed_dims = embed_dims
+        self.vel_dims = vel_dims
+        self.mode = mode
+
+        def embedding_layer(input_dims, output_dims):
+            return nn.Sequential(
+                *linear_relu_ln(output_dims, in_loops, out_loops, input_dims)
+            )
+
+        if not isinstance(embed_dims, (list, tuple)):
+            embed_dims = [embed_dims] * 5
+        self.pos_fc = embedding_layer(3, embed_dims[0])
+        self.size_fc = embedding_layer(3, embed_dims[1])
+        self.yaw_fc = embedding_layer(2, embed_dims[2])
+        if vel_dims > 0:
+            self.vel_fc = embedding_layer(self.vel_dims, embed_dims[3])
+        if output_fc:
+            self.output_fc = embedding_layer(embed_dims[-1], embed_dims[-1])
+        else:
+            self.output_fc = None
+            
+        # RNN
+        # self.gru = nn.GRU(input_size=self.embed_dims[-1], hidden_size=hid_dim, num_layers=gru_num)
+        # self.linear1 = nn.Linear(hid_dim, hid_dim*2)
+        # self.linear2 = nn.Linear(hid_dim*2, hid_dim*4)
+        # self.linear3 = nn.Linear(hid_dim*4, self.embed_dims[-1])
+        # self.relu = nn.ReLU(inplace=True)
+        
+    def forward(self, box_3d: torch.Tensor):
+        pos_feat = self.pos_fc(box_3d[..., [X, Y, Z]])
+        size_feat = self.size_fc(box_3d[..., [W, L, H]])
+        yaw_feat = self.yaw_fc(box_3d[..., [SIN_YAW, COS_YAW]])
+        if self.mode == "add":
+            output = pos_feat + size_feat + yaw_feat
+        elif self.mode == "cat":
+            output = torch.cat([pos_feat, size_feat, yaw_feat], dim=-1)
+
+        if self.vel_dims > 0:
+            vel_feat = self.vel_fc(box_3d[..., VX : VX + self.vel_dims])
+            if self.mode == "add":
+                output = output + vel_feat
+            elif self.mode == "cat":
+                output = torch.cat([output, vel_feat], dim=-1)
+        if self.output_fc is not None:
+            output = self.output_fc(output)
+        result = output
+        # lat_feat = self.gru(output)
+        # lat_feat = self.relu(self.linear1(lat_feat))
+        # lat_feat = self.relu(self.linear2(lat_feat))
+        # result = self.linear3(lat_feat)
+        return result
+
+# class DistributionModule(nn.Module):
+#     """
+#     A convolutional net that parametrises a diagonal Gaussian distribution.
+#     """
+
+#     def __init__(
+#         self, in_channels, latent_dim, min_log_sigma, max_log_sigma):
+#         super().__init__()
+#         self.compress_dim = in_channels // 2
+#         self.latent_dim = latent_dim
+#         self.min_log_sigma = min_log_sigma
+#         self.max_log_sigma = max_log_sigma
+
+#         # self.encoder = DistributionEncoder2D(
+#         #     in_channels,
+#         #     self.compress_dim,
+#         # )
+
+#         self.encoder = DistributionEncoder1DV2(
+#             in_channels,
+#             self.compress_dim,
+#         )
+
+#         self.last_conv = nn.Sequential(
+#             nn.AdaptiveAvgPool1d(1), nn.Conv1d(self.compress_dim, out_channels=2 * self.latent_dim, kernel_size=1)
+#         )
+
+#     def forward(self, s_t):
+#         encoding = self.encoder(s_t.permute(0, 2, 1))
+#         mu_log_sigma = self.last_conv(encoding).permute(0, 2, 1)
+#         mu = mu_log_sigma[:, :, :self.latent_dim]
+#         log_sigma = mu_log_sigma[:, :, self.latent_dim:]
+
+#         # clip the log_sigma value for numerical stability
+#         log_sigma = torch.clamp(log_sigma, self.min_log_sigma, self.max_log_sigma)
+#         return mu, log_sigma
+    
+# class DistributionEncoder1DV2(nn.Module):
+    """Encodes s_t or (s_t, y_{t+1}, ..., y_{t+H}).
+    """
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+
+        self.conv1 = nn.Conv1d(in_channels, out_channels=in_channels * 2, kernel_size=1, stride=1)
+        self.conv2 = nn.Conv1d(in_channels * 2, out_channels=in_channels * 2, kernel_size=1, stride=1)
+        self.conv3 = nn.Conv1d(in_channels * 2, out_channels=out_channels, kernel_size=1, stride=1)
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, s_t):
+        s_t = self.relu(self.conv1(s_t))
+        s_t = self.relu(self.conv2(s_t))
+        s_t = self.conv3(s_t)
+
+        return s_t
 
 @PLUGIN_LAYERS.register_module()
 class SparseBox3DRefinementModule(BaseModule):
@@ -85,6 +238,7 @@ class SparseBox3DRefinementModule(BaseModule):
         refine_yaw=False,
         with_cls_branch=True,
         with_quality_estimation=False,
+        with_score=True,
     ):
         super(SparseBox3DRefinementModule, self).__init__()
         self.embed_dims = embed_dims
@@ -114,6 +268,13 @@ class SparseBox3DRefinementModule(BaseModule):
                 *linear_relu_ln(embed_dims, 1, 2),
                 Linear(self.embed_dims, 2),
             )
+        self.with_score = with_score
+        if with_score:
+            self.score_layers = nn.Sequential(
+                *linear_relu_ln(embed_dims, 1, 1),
+                Linear(self.embed_dims, 1),
+            )
+            
 
     def init_weight(self):
         if self.with_cls_branch:
@@ -127,6 +288,7 @@ class SparseBox3DRefinementModule(BaseModule):
         anchor_embed: torch.Tensor,
         time_interval: torch.Tensor = 1.0,
         return_cls=True,
+        return_score=True
     ):
         feature = instance_feature + anchor_embed
         output = self.layers(feature)
@@ -153,7 +315,12 @@ class SparseBox3DRefinementModule(BaseModule):
             quality = self.quality_layers(feature)
         else:
             quality = None
-        return output, cls, quality
+        if return_score and self.with_score:
+            score = self.score_layers(feature)
+        else:
+            score = None
+        
+        return output, cls, quality, score
 
 
 @PLUGIN_LAYERS.register_module()
