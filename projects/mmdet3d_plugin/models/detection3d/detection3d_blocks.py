@@ -30,6 +30,8 @@ class SparseBox3DEncoder(BaseModule):
         output_fc=True,
         in_loops=1,
         out_loops=2,
+        hid_dim=64, 
+        gru_num=3,
     ):
         super().__init__()
         assert mode in ["add", "cat"]
@@ -53,7 +55,14 @@ class SparseBox3DEncoder(BaseModule):
             self.output_fc = embedding_layer(embed_dims[-1], embed_dims[-1])
         else:
             self.output_fc = None
-
+            
+        # RNN
+        self.gru = nn.GRU(input_size=256, hidden_size=hid_dim, num_layers=gru_num)
+        self.linear1 = nn.Linear(hid_dim, hid_dim*2)
+        self.linear2 = nn.Linear(hid_dim*2, hid_dim*2)
+        self.linear3 = nn.Linear(hid_dim*2, 256)
+        self.relu = nn.ReLU(inplace=True)
+        
     def forward(self, box_3d: torch.Tensor):
         pos_feat = self.pos_fc(box_3d[..., [X, Y, Z]])
         size_feat = self.size_fc(box_3d[..., [W, L, H]])
@@ -71,9 +80,32 @@ class SparseBox3DEncoder(BaseModule):
                 output = torch.cat([output, vel_feat], dim=-1)
         if self.output_fc is not None:
             output = self.output_fc(output)
-        return output
+        # result = output
+        lat_feat, _ = self.gru(output)
+        lat_feat = self.relu(self.linear1(lat_feat))
+        lat_feat = self.relu(self.linear2(lat_feat))
+        result = self.linear3(lat_feat)
+        return result
 
+    # def forward(self, box_3d: torch.Tensor):
+    #     pos_feat = self.pos_fc(box_3d[..., [X, Y, Z]])
+    #     size_feat = self.size_fc(box_3d[..., [W, L, H]])
+    #     yaw_feat = self.yaw_fc(box_3d[..., [SIN_YAW, COS_YAW]])
+    #     if self.mode == "add":
+    #         output = pos_feat + size_feat + yaw_feat
+    #     elif self.mode == "cat":
+    #         output = torch.cat([pos_feat, size_feat, yaw_feat], dim=-1)
 
+    #     if self.vel_dims > 0:
+    #         vel_feat = self.vel_fc(box_3d[..., VX : VX + self.vel_dims])
+    #         if self.mode == "add":
+    #             output = output + vel_feat
+    #         elif self.mode == "cat":
+    #             output = torch.cat([output, vel_feat], dim=-1)
+    #     if self.output_fc is not None:
+    #         output = self.output_fc(output)
+    #     return output
+    
 @PLUGIN_LAYERS.register_module()
 class SparseBox3DRefinementModule(BaseModule):
     def __init__(
@@ -85,6 +117,7 @@ class SparseBox3DRefinementModule(BaseModule):
         refine_yaw=False,
         with_cls_branch=True,
         with_quality_estimation=False,
+        with_score=False,
     ):
         super(SparseBox3DRefinementModule, self).__init__()
         self.embed_dims = embed_dims
@@ -114,6 +147,13 @@ class SparseBox3DRefinementModule(BaseModule):
                 *linear_relu_ln(embed_dims, 1, 2),
                 Linear(self.embed_dims, 2),
             )
+        self.with_score = with_score
+        if with_score:
+            self.score_layers = nn.Sequential(
+                *linear_relu_ln(embed_dims, 1, 1),
+                Linear(self.embed_dims, 1),
+            )
+            
 
     def init_weight(self):
         if self.with_cls_branch:
@@ -127,6 +167,7 @@ class SparseBox3DRefinementModule(BaseModule):
         anchor_embed: torch.Tensor,
         time_interval: torch.Tensor = 1.0,
         return_cls=True,
+        return_score=True
     ):
         feature = instance_feature + anchor_embed
         output = self.layers(feature)
@@ -153,6 +194,11 @@ class SparseBox3DRefinementModule(BaseModule):
             quality = self.quality_layers(feature)
         else:
             quality = None
+        if return_score and self.with_score:
+            score = self.score_layers(feature)
+        else:
+            score = None
+        
         return output, cls, quality
 
 

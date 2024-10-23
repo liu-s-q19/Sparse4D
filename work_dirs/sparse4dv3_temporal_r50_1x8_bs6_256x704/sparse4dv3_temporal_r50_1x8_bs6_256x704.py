@@ -3,13 +3,16 @@ plugin_dir = 'projects/mmdet3d_plugin/'
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
 work_dir = 'work_dirs/sparse4dv3_temporal_r50_1x8_bs6_256x704'
-total_batch_size = 48
-num_gpus = 8
+version = 'trainval'
+length = dict(trainval=28130, mini=323)
+num_gpus = 6
+total_batch_size = 36
 batch_size = 6
-num_iters_per_epoch = 586
+num_iters_per_epoch = 781
 num_epochs = 100
-checkpoint_epoch_interval = 20
-checkpoint_config = dict(interval=11720)
+checkpoint_epoch_interval = 5
+lr = 4.5e-06
+checkpoint_config = dict(interval=3905)
 log_config = dict(
     interval=51,
     hooks=[
@@ -88,7 +91,9 @@ model = dict(
             mode='cat',
             output_fc=False,
             in_loops=1,
-            out_loops=4),
+            out_loops=2,
+            hid_dim=64,
+            gru_num=3),
         num_single_frame_decoder=1,
         operation_order=[
             'deformable', 'ffn', 'norm', 'refine', 'temp_gnn', 'gnn', 'norm',
@@ -405,7 +410,7 @@ data = dict(
         tracking_threshold=0.2))
 optimizer = dict(
     type='AdamW',
-    lr=0.0006,
+    lr=4.5e-06,
     weight_decay=0.001,
     paramwise_cfg=dict(custom_keys=dict(img_backbone=dict(lr_mult=0.5))))
 optimizer_config = dict(grad_clip=dict(max_norm=25, norm_type=2))
@@ -415,16 +420,16 @@ lr_config = dict(
     warmup_iters=500,
     warmup_ratio=0.3333333333333333,
     min_lr_ratio=0.001)
-runner = dict(type='IterBasedRunner', max_iters=58600)
+runner = dict(type='IterBasedRunner', max_iters=78100)
 vis_pipeline = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True),
     dict(type='Collect', keys=['img'], meta_keys=['timestamp', 'lidar2img'])
 ]
 evaluation = dict(
-    interval=11720,
+    interval=3905,
     pipeline=[
         dict(type='LoadMultiViewImageFromFiles', to_float32=True),
         dict(
             type='Collect', keys=['img'], meta_keys=['timestamp', 'lidar2img'])
     ])
-gpu_ids = range(0, 1)
+gpu_ids = range(0, 6)

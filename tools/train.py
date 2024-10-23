@@ -25,8 +25,7 @@ from torch import distributed as dist
 from datetime import timedelta
 
 import cv2
-sys.path.append("../../")
-sys.path.append("/home/xingyining/liushiqi/Sparse4D")
+
 cv2.setNumThreads(8)
 
 

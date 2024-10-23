@@ -22,8 +22,8 @@ then
         $@
 else
     python ./tools/test.py \
-        ${config} \
-        ${checkpoint} \
+        --config=$config \
+        --checkpoint=$checkpoint \
         --eval bbox \
         $@
 fi

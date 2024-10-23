@@ -108,6 +108,7 @@ class SparseBox3DTarget(BaseTargetWithDenoising):
         )
         output_box_target = box_pred.new_zeros(box_pred.shape)
         output_reg_weights = box_pred.new_zeros(box_pred.shape)
+        output_match_flags = box_pred.new_zeros([bs, num_pred], dtype=torch.long)
         for i, (pred_idx, target_idx) in enumerate(indices):
             if len(cls_target[i]) == 0:
                 continue
@@ -116,6 +117,8 @@ class SparseBox3DTarget(BaseTargetWithDenoising):
             output_reg_weights[i, pred_idx] = instance_reg_weights[i][
                 target_idx
             ]
+            # 对有匹配的预测框，标记为1
+            output_match_flags[i, pred_idx] = 1
         return output_cls_target, output_box_target, output_reg_weights
 
     def _cls_cost(self, cls_pred, cls_target):

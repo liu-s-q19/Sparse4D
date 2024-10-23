@@ -27,8 +27,8 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="MMDet test (and eval) a model"
     )
-    parser.add_argument("config", help="test config file path")
-    parser.add_argument("checkpoint", help="checkpoint file")
+    parser.add_argument("--config", default='projects/configs/sparse4dv3_temporal_r50_1x8_bs6_256x704.py', help="test config file path")
+    parser.add_argument("--checkpoint", default='work_dirs/sparse4dv3_temporal_r50_1x8_bs6_256x704/latest.pth', help="checkpoint file")
     parser.add_argument("--out", help="output result file in pickle format")
     parser.add_argument(
         "--fuse-conv-bn",

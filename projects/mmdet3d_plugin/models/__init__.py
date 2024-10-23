@@ -5,7 +5,7 @@ from .blocks import (
     DenseDepthNet,
     AsymmetricFFN,
 )
-from .instance_bank import InstanceBank
+from .instance_bank import InstanceBank, SCInstanceBank
 from .detection3d import (
     SparseBox3DDecoder,
     SparseBox3DTarget,
@@ -22,6 +22,7 @@ __all__ = [
     "DenseDepthNet",
     "AsymmetricFFN",
     "InstanceBank",
+    "SCInstanceBank",
     "SparseBox3DDecoder",
     "SparseBox3DTarget",
     "SparseBox3DRefinementModule",

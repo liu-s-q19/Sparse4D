@@ -55,7 +55,7 @@ wget https://download.pytorch.org/models/resnet50-19c8e357.pth -O ckpt/resnet50-
 bash local_train.sh sparse4dv3_temporal_r50_1x8_bs6_256x704
 
 # test
-bash local_test.sh sparse4dv3_temporal_r50_1x8_bs6_256x704  path/to/checkpoint
+bash local_test.sh sparse4dv3_temporal_r50_1x8_bs6_256x704  work_dirs/sparse4dv3_temporal_r50_1x8_bs6_256x704/latest.pth
 ```
 
 For inference-related guidelines, please refer to the [tutorial/tutorial.ipynb](../tutorial/tutorial.ipynb).
