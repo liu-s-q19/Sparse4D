@@ -285,6 +285,13 @@ model = dict(
             alpha=0.25,
             loss_weight=2.0,
         ),
+        loss_scs=dict(
+            type="FocalLoss",
+            use_sigmoid=True,
+            gamma=2.0,
+            alpha=0.25,
+            loss_weight=2.0,
+        ),
         loss_reg=dict(
             type="SparseBox3DLoss",
             loss_box=dict(type="L1Loss", loss_weight=0.25),

@@ -119,7 +119,7 @@ class SparseBox3DTarget(BaseTargetWithDenoising):
             ]
             # 对有匹配的预测框，标记为1
             output_match_flags[i, pred_idx] = 1
-        return output_cls_target, output_box_target, output_reg_weights
+        return output_cls_target, output_box_target, output_reg_weights, output_match_flags
 
     def _cls_cost(self, cls_pred, cls_target):
         bs = cls_pred.shape[0]

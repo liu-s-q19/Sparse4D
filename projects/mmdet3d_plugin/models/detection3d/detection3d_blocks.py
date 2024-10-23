@@ -117,7 +117,7 @@ class SparseBox3DRefinementModule(BaseModule):
         refine_yaw=False,
         with_cls_branch=True,
         with_quality_estimation=False,
-        with_score=False,
+        with_score=True,
     ):
         super(SparseBox3DRefinementModule, self).__init__()
         self.embed_dims = embed_dims
@@ -199,7 +199,7 @@ class SparseBox3DRefinementModule(BaseModule):
         else:
             score = None
         
-        return output, cls, quality
+        return output, cls, quality, score
 
 
 @PLUGIN_LAYERS.register_module()
